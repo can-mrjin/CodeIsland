@@ -22,12 +22,13 @@ enum NotchAnimation {
 private struct BlurFadeModifier: ViewModifier {
     let active: Bool
     func body(content: Content) -> some View {
-        // No compositingGroup here: macOS 26 renders compositingGroup + blur
-        // (even with radius 0 in the identity state) transparent until a forced
-        // re-composition, which made the approval card invisible except on hover
-        // (issue #100).
+        // Avoid per-subview Gaussian blur during 120 Hz expand/collapse: without
+        // compositingGroup (forbidden on macOS 26 due to #100), `.blur(radius: 5)`
+        // triggers an offscreen blur pass on every child view in the card list,
+        // causing visible frame drops. Pure GPU opacity + subtle scale keeps
+        // transitions smooth at native ProMotion refresh rates.
         content
-            .blur(radius: active ? 5 : 0)
+            .scaleEffect(active ? 0.985 : 1, anchor: .top)
             .opacity(active ? 0 : 1)
     }
 }

@@ -22,9 +22,10 @@ final class FrameClockTests: XCTestCase {
         }
     }
 
-    /// The clock's 20 passes a second, with room for ticks that straddle two of
-    /// `settle`'s 10 ms turns.
-    private static let clockRateCeiling = 45
+    /// Adaptive VSync ceiling (up to 120 Hz on ProMotion displays, with headroom
+    /// for ticks straddling `settle`'s 10 ms turns). Unbounded per-frame loops in
+    /// offscreen windows run thousands of layouts/sec, far above this ceiling.
+    private static let clockRateCeiling = 160
 
     private var windows: [NSWindow] = []
 
@@ -168,12 +169,20 @@ final class FrameClockTests: XCTestCase {
         XCTAssertFalse(FrameTicker.shared.isRunning)
     }
 
-    func testIntervalsLandOnTheTwentyFpsGrid() {
-        XCTAssertEqual(FrameClock(interval: 0.03) { _ in EmptyView() }.interval, 0.05, accuracy: 1e-9)
-        XCTAssertEqual(FrameClock(interval: 0.05) { _ in EmptyView() }.interval, 0.05, accuracy: 1e-9)
-        // The sleep scenes ask for 0.12 s: they tick on every other frame of
-        // the rest instead of in updates of their own.
+    func testIntervalsAdaptToNativeHighRefreshGrid() {
+        XCTAssertEqual(FrameClock(interval: 0.03) { _ in EmptyView() }.interval, FrameTicker.step, accuracy: 1e-9)
+        XCTAssertEqual(FrameClock(interval: 0.05) { _ in EmptyView() }.interval, FrameTicker.step, accuracy: 1e-9)
+        // Low-frequency sleep scenes keep their slower cadence instead of firing
+        // on every high-refresh frame.
         XCTAssertEqual(FrameClock(interval: 0.12) { _ in EmptyView() }.interval, 0.10, accuracy: 1e-9)
+    }
+
+    func testClampedRefreshRateAdaptsToProMotionAndStandardDisplays() {
+        XCTAssertEqual(FrameTicker.clampedRefreshRate(0), 60)
+        XCTAssertEqual(FrameTicker.clampedRefreshRate(30), 60)
+        XCTAssertEqual(FrameTicker.clampedRefreshRate(60), 60)
+        XCTAssertEqual(FrameTicker.clampedRefreshRate(120), 120)
+        XCTAssertEqual(FrameTicker.clampedRefreshRate(240), 120)
     }
 
     func testASleepZTakesTheSameRoomAtEverySize() {

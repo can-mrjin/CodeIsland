@@ -403,6 +403,8 @@ class PanelWindowController: NSObject, NSWindowDelegate {
     }
 
     private func makeHostingView(for screen: NSScreen) -> NotchHostingView<NotchPanelView> {
+        FrameTicker.shared.bind(to: screen)
+
         let hasNotch = ScreenDetector.screenHasNotch(screen)
         let notchHeight = ScreenDetector.topBarHeight(for: screen)
         let notchW = ScreenDetector.notchWidth(for: screen)
@@ -415,6 +417,7 @@ class PanelWindowController: NSObject, NSWindowDelegate {
             screenWidth: screen.frame.width
         )
         let contentView = NotchHostingView(rootView: rootView)
+        contentView.wantsLayer = true
         contentView.sizingOptions = []
         contentView.translatesAutoresizingMaskIntoConstraints = true
         return contentView
